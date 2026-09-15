@@ -1,2 +1,3 @@
 # be
-A compiler backend
+
+`be` is a compiler backend.
