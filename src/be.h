@@ -4,6 +4,7 @@
 #include <stdnoreturn.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 void be_error(const char* filename, int line, const char* format, ...);
 noreturn void be_fatal(const char* format, ...);
@@ -60,6 +61,7 @@ typedef struct {
 } Be_Value;
 
 typedef enum {
+    BE_OPERAND_ERROR,
     BE_OPERAND_VALUE,
     BE_OPERAND_INT,
     BE_OPERAND_FLOAT,
@@ -75,6 +77,7 @@ typedef struct {
 } Be_Operand;
 
 typedef enum {
+    BE_INSTRUCTION_ERROR,
     BE_INSTRUCTION_CONST,
     BE_INSTRUCTION_ADD,
     BE_INSTRUCTION_SUB,
@@ -91,6 +94,7 @@ typedef struct {
 } Be_Instruction;
 
 typedef enum {
+    BE_TERMINATOR_ERROR,
     BE_TERMINATOR_RET,
     BE_TERMINATOR_BR,
     BE_TERMINATOR_CBR,
@@ -132,6 +136,14 @@ typedef struct {
 } Be_Function;
 
 typedef struct { Be_Vector functions; } Be_Module;
+
+Be_Value* be_value(Be_Arena* arena);
+Be_Operand* be_operand(Be_Arena* arena);
+Be_Instruction* be_instruction(Be_Arena* arena);
+Be_Terminator* be_terminator(Be_Arena* arena);
+Be_Block* be_block(Be_Arena* arena);
+Be_Function* be_function(Be_Arena* arena);
+Be_Module* be_module(Be_Arena* arena);
 
 Be_Module* be_parse(Be_Arena* arena, const char* filename, const char* source);
 void be_dump(const Be_Module* module);

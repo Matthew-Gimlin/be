@@ -5,17 +5,25 @@
 static const char* const VERSION = "0.0.0";
 static const char* const HELP =
     "usage:\n"
-    "  be [-v] [-h] input\n"
+    "  be [options] input\n"
     "\n"
     "options:\n"
-    "  -v   show the version and exit\n"
-    "  -h   show the help message and exit\n"
+    "  -v, --version\n"
+    "    show the version and exit\n"
+    "  -h, --help\n"
+    "    show the help message and exit\n"
 ;
+
+static struct option long_opts[] = {
+    {"version", no_argument, NULL, 'v'},
+    {"help", no_argument, NULL, 'h'},
+    {NULL, 0, NULL, 0},
+};
 
 int main(int argc, char** argv) {
     opterr = 0;
     int opt;
-    while ((opt = getopt(argc, argv, ":vh")) != -1) {
+    while ((opt = getopt_long(argc, argv, ":vh", long_opts, NULL)) != -1) {
         switch (opt) {
             case 'v':
                 puts(VERSION);
@@ -24,9 +32,9 @@ int main(int argc, char** argv) {
                 fputs(HELP, stdout);
                 return 0;
             case ':':
-                be_fatal("missing argument for -%c option", optopt);
+                be_fatal("missing argument for %s option", argv[optind - 1]);
             case '?':
-                be_fatal("unknown option -%c", optopt);
+                be_fatal("unknown option %s", argv[optind - 1]);
         }
     }
     if (optind + 1 != argc) {
