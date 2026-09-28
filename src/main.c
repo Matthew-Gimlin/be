@@ -47,6 +47,9 @@ int main(int argc, char** argv) {
     char* source = be_arena_alloc_file(&arena, filename);
     if (!source) be_fatal("could not read %s", filename);
     Be_Module* module = be_parse(&arena, filename, source);
+    if (!module) return 1;
+    be_fold(module);
+    be_simplify(module);
     be_dump(module);
     be_free_arena(&arena);
     return 0;

@@ -14,8 +14,8 @@ noreturn void be_fatal(const char* fmt, ...) {
     exit(1);
 }
 
-void be_error(const char* filename, int line, const char* format, ...) {
-    fprintf(stderr, "%s:%d: error: ", filename, line);
+void be_error(const char* filename, int line, int column, const char* format, ...) {
+    fprintf(stderr, "%s:%d:%d: error: ", filename, line, column);
     va_list va;
     va_start(va, format);
     vfprintf(stderr, format, va);
@@ -112,12 +112,20 @@ void be_init_vector(Be_Vector* vector, Be_Arena* arena) {
 }
 
 int be_vector_push(Be_Vector* vector, void* element) {
-    if (vector->size + 1 >= vector->capacity) {
+    if (vector->size >= vector->capacity) {
         vector->capacity *= 2;
         be_realloc(vector);
     }
     vector->elements[vector->size] = element;
     return vector->size++;
+}
+
+void be_vector_remove(Be_Vector* vector, int index) {
+    if (index < 0 || index >= vector->size) return;
+    for (int i = index; i < vector->size - 1; i++) {
+        vector->elements[i] = vector->elements[i + 1];
+    }
+    vector->size--;
 }
 
 Be_Value* be_value(Be_Arena* arena) {
@@ -152,6 +160,8 @@ Be_Block* be_block(Be_Arena* arena) {
     block->id = -1;
     be_init_vector(&block->instructions, arena);
     block->terminator.kind = BE_TERMINATOR_ERROR;
+    be_init_vector(&block->predecessors, arena);
+    be_init_vector(&block->successors, arena);
     return block;
 }
 

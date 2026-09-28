@@ -6,7 +6,17 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-void be_error(const char* filename, int line, const char* format, ...);
+#include <stdio.h>
+#include <stdlib.h>
+
+#define BE_UNUSED(x) ((void)x)
+#define BE_TODO(msg) \
+    do { \
+        printf("be: %s:%d: todo: " msg "\n", __FILE__, __LINE__); \
+        abort(); \
+    } while (0)
+
+void be_error(const char* filename, int line, int column, const char* format, ...);
 noreturn void be_fatal(const char* format, ...);
 
 typedef struct { const char* str; int len; } Be_String;
@@ -42,6 +52,7 @@ typedef struct {
 
 void be_init_vector(Be_Vector* vector, Be_Arena* arena);
 int be_vector_push(Be_Vector* vector, void* element);
+void be_vector_remove(Be_Vector* vector, int index);
 
 typedef enum {
     BE_TYPE_ERROR,
@@ -81,6 +92,7 @@ typedef enum {
     BE_INSTRUCTION_CONST,
     BE_INSTRUCTION_ADD,
     BE_INSTRUCTION_SUB,
+    BE_INSTRUCTION_EQ,
 } Be_Instruction_Kind;
 
 typedef struct {
@@ -113,7 +125,8 @@ typedef struct {
             Be_Block_Reference block;
         } br;
         struct {
-            Be_Operand* condition;
+            Be_Type type;
+            Be_Operand condition;
             Be_Block_Reference true_block;
             Be_Block_Reference false_block;
         } cbr;
@@ -125,6 +138,8 @@ typedef struct {
     int id;
     Be_Vector instructions;
     Be_Terminator terminator;
+    Be_Vector predecessors;
+    Be_Vector successors;
 } Be_Block;
 
 typedef struct {
@@ -147,5 +162,10 @@ Be_Module* be_module(Be_Arena* arena);
 
 Be_Module* be_parse(Be_Arena* arena, const char* filename, const char* source);
 void be_dump(const Be_Module* module);
+void be_fold(Be_Module* module);
+void be_simplify(Be_Module* module);
+
+void be_build_cfg(Be_Module* module);
+// void be_emit_x64(FILE* f, Be_Module* module);
 
 #endif

@@ -51,6 +51,11 @@ static void be_dump_instruction(const Be_Function* function, const Be_Instructio
             break;
         case BE_INSTRUCTION_ADD:
             printf("add ");
+            goto binary;
+        case BE_INSTRUCTION_EQ:
+            printf("eq ");
+            goto binary;
+        binary:
             be_dump_operand(function, &instruction->binary.lhs);
             printf(", ");
             be_dump_operand(function, &instruction->binary.rhs);
@@ -63,12 +68,32 @@ static void be_dump_instruction(const Be_Function* function, const Be_Instructio
 
 static void be_dump_terminator(const Be_Function* function, const Be_Terminator* terminator) {
     if (!terminator) return;
+    printf("  ");
     switch (terminator->kind) {
         case BE_TERMINATOR_RET:
-            printf("  ret %s ", be_dump_type(terminator->ret.type));
+            printf("ret %s ", be_dump_type(terminator->ret.type));
             be_dump_operand(function, &terminator->ret.operand);
             break;
+        case BE_TERMINATOR_BR:
+            printf(
+                "br %.*s",
+                terminator->br.block.label.len,
+                terminator->br.block.label.str
+            );
+            break;
+        case BE_TERMINATOR_CBR:
+            printf("cbr %s ", be_dump_type(terminator->cbr.type));
+            be_dump_operand(function, &terminator->cbr.condition);
+            printf(
+                ", %.*s, %.*s",
+                terminator->cbr.true_block.label.len,
+                terminator->cbr.true_block.label.str,
+                terminator->cbr.false_block.label.len,
+                terminator->cbr.false_block.label.str
+            );
+            break;
         default:
+            printf("; unknown terminator kind %d", terminator->kind);
             return;
     }
     printf("\n");
