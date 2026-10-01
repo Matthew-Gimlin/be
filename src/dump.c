@@ -82,7 +82,7 @@ static void be_dump_terminator(FILE* f, const Be_Function* function, const Be_Te
             );
             break;
         case BE_TERMINATOR_CBR:
-            printf("cbr %s ", be_dump_type(terminator->cbr.type));
+            fprintf(f, "cbr %s ", be_dump_type(terminator->cbr.type));
             be_dump_operand(f, function, &terminator->cbr.condition);
             fprintf(
                 f, ", %.*s, %.*s",
