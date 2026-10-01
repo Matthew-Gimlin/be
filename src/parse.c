@@ -322,7 +322,7 @@ static void be_parse_terminator(Be_Parser* parser, Be_Function* function, Be_Blo
 
 static void be_parse_block(Be_Parser* parser, Be_Function* function) {
     int id = be_push_block(parser, function);
-    Be_Block* block = function->blocks.elements[id];
+    Be_Block* block = be_get_block(function, id);
     be_expect(parser, BE_TOKEN_LABEL, "expected label");
     be_expect(parser, BE_TOKEN_COLON, "expected `:`");
     while (!be_at_terminator(parser)) {

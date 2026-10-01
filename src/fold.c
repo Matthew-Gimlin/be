@@ -59,6 +59,21 @@ static void be_fold_instruction(Be_Instruction* instruction, Be_Constant* consta
                 };
             } else constants[id].known = false;
             break;
+        case BE_INSTRUCTION_EQ:
+            if (be_is_known(&instruction->binary.lhs, constants)
+                    && be_is_known(&instruction->binary.rhs, constants)) {
+                instruction->kind = BE_INSTRUCTION_CONST;
+                instruction->constant.operand = (Be_Operand){
+                    .kind = BE_OPERAND_INT,
+                    .int_const = be_get_constant(&instruction->binary.lhs, constants)
+                        == be_get_constant(&instruction->binary.rhs, constants),
+                };
+                constants[id] = (Be_Constant) {
+                    .known = true,
+                    .int_const = instruction->constant.operand.int_const,
+                };
+            } else constants[id].known = false;
+            break;
         default:
             break;
     }
@@ -72,6 +87,14 @@ static void be_fold_terminator(Be_Terminator* terminator, Be_Constant* constants
                     .kind = BE_OPERAND_INT,
                     .int_const = be_get_constant(&terminator->ret.operand, constants),
                 };
+            }
+            break;
+        case BE_TERMINATOR_CBR:
+            if (be_is_known(&terminator->cbr.condition, constants)) {
+                terminator->kind = BE_TERMINATOR_BR;
+                int64_t condition = be_get_constant(&terminator->cbr.condition, constants);
+                if (condition) terminator->br.block = terminator->cbr.true_block;
+                else terminator->br.block = terminator->cbr.false_block;
             }
             break;
         default:

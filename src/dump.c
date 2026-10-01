@@ -15,77 +15,77 @@ static const char* be_dump_type(Be_Type type) {
     }
 }
 
-static void be_dump_value(const Be_Function* function, int id) {
+static void be_dump_value(FILE* f, const Be_Function* function, int id) {
     if (id < 0 || id >= function->values.size) return;
     Be_Value* value = function->values.elements[id];
-    printf("%.*s", value->name.len, value->name.str);
+    fprintf(f, "%.*s", value->name.len, value->name.str);
 }
 
-static void be_dump_operand(const Be_Function* function, const Be_Operand* operand) {
+static void be_dump_operand(FILE* f, const Be_Function* function, const Be_Operand* operand) {
     if (!operand) return;
     switch (operand->kind) {
         case BE_OPERAND_VALUE:
-            be_dump_value(function, operand->value_id);
+            be_dump_value(f, function, operand->value_id);
             break;
         case BE_OPERAND_INT:
-            printf("%" PRId64, operand->int_const);
+            fprintf(f, "%" PRId64, operand->int_const);
             break;
         case BE_OPERAND_FLOAT:
-            printf("%lf", operand->float_const);
+            fprintf(f, "%lf", operand->float_const);
             break;
         default:
             break;
     }
 }
 
-static void be_dump_instruction(const Be_Function* function, const Be_Instruction* instruction) {
+static void be_dump_instruction(FILE* f, const Be_Function* function, const Be_Instruction* instruction) {
     if (!instruction) return;
-    printf("  ");
+    fprintf(f, "  ");
     if (instruction->result_id >= 0) {
-        be_dump_value(function, instruction->result_id);
-        printf(" = %s ", be_dump_type(instruction->type));
+        be_dump_value(f, function, instruction->result_id);
+        fprintf(f, " = %s ", be_dump_type(instruction->type));
     }
     switch (instruction->kind) {
         case BE_INSTRUCTION_CONST:
-            be_dump_operand(function, &instruction->constant.operand);
+            be_dump_operand(f, function, &instruction->constant.operand);
             break;
         case BE_INSTRUCTION_ADD:
-            printf("add ");
+            fprintf(f, "add ");
             goto binary;
         case BE_INSTRUCTION_EQ:
-            printf("eq ");
+            fprintf(f, "eq ");
             goto binary;
         binary:
-            be_dump_operand(function, &instruction->binary.lhs);
-            printf(", ");
-            be_dump_operand(function, &instruction->binary.rhs);
+            be_dump_operand(f, function, &instruction->binary.lhs);
+            fprintf(f, ", ");
+            be_dump_operand(f, function, &instruction->binary.rhs);
             break;
         default:
             return;
     }
-    printf("\n");
+    fprintf(f, "\n");
 }
 
-static void be_dump_terminator(const Be_Function* function, const Be_Terminator* terminator) {
+static void be_dump_terminator(FILE* f, const Be_Function* function, const Be_Terminator* terminator) {
     if (!terminator) return;
-    printf("  ");
+    fprintf(f, "  ");
     switch (terminator->kind) {
         case BE_TERMINATOR_RET:
-            printf("ret %s ", be_dump_type(terminator->ret.type));
-            be_dump_operand(function, &terminator->ret.operand);
+            fprintf(f, "ret %s ", be_dump_type(terminator->ret.type));
+            be_dump_operand(f, function, &terminator->ret.operand);
             break;
         case BE_TERMINATOR_BR:
-            printf(
-                "br %.*s",
+            fprintf(
+                f, "br %.*s",
                 terminator->br.block.label.len,
                 terminator->br.block.label.str
             );
             break;
         case BE_TERMINATOR_CBR:
             printf("cbr %s ", be_dump_type(terminator->cbr.type));
-            be_dump_operand(function, &terminator->cbr.condition);
-            printf(
-                ", %.*s, %.*s",
+            be_dump_operand(f, function, &terminator->cbr.condition);
+            fprintf(
+                f, ", %.*s, %.*s",
                 terminator->cbr.true_block.label.len,
                 terminator->cbr.true_block.label.str,
                 terminator->cbr.false_block.label.len,
@@ -93,35 +93,35 @@ static void be_dump_terminator(const Be_Function* function, const Be_Terminator*
             );
             break;
         default:
-            printf("; unknown terminator kind %d", terminator->kind);
+            fprintf(f, "; unknown terminator kind %d\n", terminator->kind);
             return;
     }
-    printf("\n");
+    fprintf(f, "\n");
 }
 
-static void be_dump_block(const Be_Function* function, const Be_Block* block) {
+static void be_dump_block(FILE* f, const Be_Function* function, const Be_Block* block) {
     if (!block) return;
-    printf("%.*s:\n", block->label.len, block->label.str);
+    fprintf(f, "%.*s:\n", block->label.len, block->label.str);
     for (int i = 0; i < block->instructions.size; i++) {
-        be_dump_instruction(function, block->instructions.elements[i]);
+        be_dump_instruction(f, function, block->instructions.elements[i]);
     }
-    be_dump_terminator(function, &block->terminator);
+    be_dump_terminator(f, function, &block->terminator);
 }
 
-static void be_dump_function(const Be_Function* function) {
+static void be_dump_function(FILE* f, const Be_Function* function) {
     if (!function) return;
-    printf("func %s %.*s() {\n", be_dump_type(function->type), function->name.len, function->name.str);
+    fprintf(f, "func %s %.*s() {\n", be_dump_type(function->type), function->name.len, function->name.str);
     for (int i = 0; i < function->blocks.size; i++) {
-        be_dump_block(function, function->blocks.elements[i]);
-        if (i < function->blocks.size - 1) printf("\n");
+        be_dump_block(f, function, function->blocks.elements[i]);
+        if (i < function->blocks.size - 1) fprintf(f, "\n");
     }
-    printf("}\n");
+    fprintf(f, "}\n");
 }
 
-void be_dump(const Be_Module* module) {
+void be_dump(FILE* f, const Be_Module* module) {
     if (!module) return;
     for (int i = 0; i < module->functions.size; i++) {
-        be_dump_function(module->functions.elements[i]);
-        if (i < module->functions.size - 1) printf("\n");
+        be_dump_function(f, module->functions.elements[i]);
+        if (i < module->functions.size - 1) fprintf(f, "\n");
     }
 }

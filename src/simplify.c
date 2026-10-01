@@ -85,14 +85,29 @@ void be_simplify(Be_Module* module) {
         );
         memset(usages, 0, function->values.size * sizeof(int));
         be_track_function(function, usages);
-
-        // DEBUG
-        // for (int i = 0; i < function->values.size; i++) {
-        //     Be_Value* value = function->values.elements[i];
-        //     printf("%.*s %d\n", value->name.len, value->name.str, usages[i]);
-        // }
-
         be_simplify_function(function, usages);
     }
     be_free_arena(&scratch);
+}
+
+static void be_simplify_branches_function(Be_Function* function) {
+    for (int i = 0; i < function->blocks.size; i++) {
+        Be_Block* block = function->blocks.elements[i];
+        if (block->terminator.kind != BE_TERMINATOR_BR) continue;
+        if (block->successors.size != 1) continue;
+        Be_Block* successor = block->successors.elements[0];
+        if (successor->predecessors.size != 1) continue;
+        be_vector_combine(&block->instructions, &successor->instructions);
+        block->terminator = successor->terminator;
+        block->successors = successor->successors;
+        successor->instructions.size = 0;
+        successor->predecessors.size = 0;
+        successor->successors.size = 0;
+    }
+}
+
+void be_simplify_branches(Be_Module* module) {
+    for (int i = 0; i < module->functions.size; i++) {
+        be_simplify_branches_function(module->functions.elements[i]);
+    }
 }

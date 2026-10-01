@@ -53,6 +53,7 @@ typedef struct {
 void be_init_vector(Be_Vector* vector, Be_Arena* arena);
 int be_vector_push(Be_Vector* vector, void* element);
 void be_vector_remove(Be_Vector* vector, int index);
+void be_vector_combine(Be_Vector* a, Be_Vector* b);
 
 typedef enum {
     BE_TYPE_ERROR,
@@ -160,12 +161,17 @@ Be_Block* be_block(Be_Arena* arena);
 Be_Function* be_function(Be_Arena* arena);
 Be_Module* be_module(Be_Arena* arena);
 
+Be_Value* be_get_value(Be_Function* function, int id);
+Be_Block* be_get_block(Be_Function* function, int id);
+
 Be_Module* be_parse(Be_Arena* arena, const char* filename, const char* source);
-void be_dump(const Be_Module* module);
+void be_dump(FILE* f, const Be_Module* module);
 void be_fold(Be_Module* module);
+
+void be_simplify_branches(Be_Module* module);
 void be_simplify(Be_Module* module);
 
 void be_build_cfg(Be_Module* module);
-// void be_emit_x64(FILE* f, Be_Module* module);
+void be_remove_unreachable(Be_Module* module);
 
 #endif

@@ -128,6 +128,14 @@ void be_vector_remove(Be_Vector* vector, int index) {
     vector->size--;
 }
 
+void be_vector_combine(Be_Vector* a, Be_Vector* b) {
+    if (a->size + b->size >= a->capacity) {
+        a->capacity += b->capacity;
+        be_realloc(a);
+    }
+    memcpy(&a->elements[a->size], b->elements, b->size * sizeof(void*));
+}
+
 Be_Value* be_value(Be_Arena* arena) {
     Be_Value* value = be_arena_alloc(arena, sizeof(Be_Value), alignof(Be_Value));
     value->type = BE_TYPE_ERROR;
@@ -178,4 +186,20 @@ Be_Module* be_module(Be_Arena* arena) {
     Be_Module* module = be_arena_alloc(arena, sizeof(Be_Module), alignof(Be_Module));
     be_init_vector(&module->functions, arena);
     return module;
+}
+
+Be_Value* be_get_value(Be_Function* function, int id) {
+    for (int i = 0; i < function->values.size; i++) {
+        Be_Value* value = function->values.elements[i];
+        if (value->id == id) return value;
+    }
+    return NULL;
+}
+
+Be_Block* be_get_block(Be_Function* function, int id) {
+    for (int i = 0; i < function->blocks.size; i++) {
+        Be_Block* block = function->blocks.elements[i];
+        if (block->id == id) return block;
+    }
+    return NULL;
 }
