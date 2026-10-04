@@ -59,6 +59,7 @@ int main(int argc, char** argv) {
     if (!source) be_fatal("could not read %s", filename);
     Be_Module* module = be_parse(&arena, filename, source);
     if (!module) return 1;
+    if (!be_resolve(module)) return 1;
     if (level > 0) {
         be_fold(module);
         be_build_cfg(module);

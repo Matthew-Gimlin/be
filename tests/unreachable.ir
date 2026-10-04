@@ -1,0 +1,7 @@
+func i @main() {
+entry:
+    ret i 0
+
+unreachable:
+    ret i 1
+}

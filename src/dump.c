@@ -2,19 +2,6 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-static const char* be_dump_type(Be_Type type) {
-    switch (type) {
-        case BE_TYPE_VOID: return "void";
-        case BE_TYPE_BYTE: return "b";
-        case BE_TYPE_SHORT: return "s";
-        case BE_TYPE_INT: return "i";
-        case BE_TYPE_LONG: return "l";
-        case BE_TYPE_FLOAT: return "f";
-        case BE_TYPE_DOUBLE: return "d";
-        default: return "?";
-    }
-}
-
 static void be_dump_value(FILE* f, const Be_Function* function, int id) {
     if (id < 0 || id >= function->values.size) return;
     Be_Value* value = function->values.elements[id];
@@ -43,7 +30,7 @@ static void be_dump_instruction(FILE* f, const Be_Function* function, const Be_I
     fprintf(f, "  ");
     if (instruction->result_id >= 0) {
         be_dump_value(f, function, instruction->result_id);
-        fprintf(f, " = %s ", be_dump_type(instruction->type));
+        fprintf(f, " = %s ", be_type_symbol(instruction->type));
     }
     switch (instruction->kind) {
         case BE_INSTRUCTION_CONST:
@@ -71,7 +58,7 @@ static void be_dump_terminator(FILE* f, const Be_Function* function, const Be_Te
     fprintf(f, "  ");
     switch (terminator->kind) {
         case BE_TERMINATOR_RET:
-            fprintf(f, "ret %s ", be_dump_type(terminator->ret.type));
+            fprintf(f, "ret %s ", be_type_symbol(terminator->ret.type));
             be_dump_operand(f, function, &terminator->ret.operand);
             break;
         case BE_TERMINATOR_BR:
@@ -82,7 +69,7 @@ static void be_dump_terminator(FILE* f, const Be_Function* function, const Be_Te
             );
             break;
         case BE_TERMINATOR_CBR:
-            fprintf(f, "cbr %s ", be_dump_type(terminator->cbr.type));
+            fprintf(f, "cbr %s ", be_type_symbol(terminator->cbr.type));
             be_dump_operand(f, function, &terminator->cbr.condition);
             fprintf(
                 f, ", %.*s, %.*s",
@@ -110,7 +97,7 @@ static void be_dump_block(FILE* f, const Be_Function* function, const Be_Block* 
 
 static void be_dump_function(FILE* f, const Be_Function* function) {
     if (!function) return;
-    fprintf(f, "func %s %.*s() {\n", be_dump_type(function->type), function->name.len, function->name.str);
+    fprintf(f, "func %s %.*s() {\n", be_type_symbol(function->type), function->name.len, function->name.str);
     for (int i = 0; i < function->blocks.size; i++) {
         be_dump_block(f, function, function->blocks.elements[i]);
         if (i < function->blocks.size - 1) fprintf(f, "\n");

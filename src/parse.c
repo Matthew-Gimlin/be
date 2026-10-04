@@ -19,6 +19,7 @@ typedef enum {
     BE_TOKEN_FUNC,      // `func` keyword
     BE_TOKEN_RET,       // `ret` keyword
     BE_TOKEN_I,         // `i` keyword
+    BE_TOKEN_L,         // `l` keyword
     BE_TOKEN_LPAREN,    // `(` symbol
     BE_TOKEN_RPAREN,    // `)` symbol
     BE_TOKEN_LBRACE,    // `{` symbol
@@ -34,6 +35,8 @@ typedef struct {
     const char* const filename;
     const char* const source;
     const char* position;
+    int position_line;
+    int position_column;
     Be_Token token;
     Be_String symbol;
     int line;
@@ -43,9 +46,9 @@ typedef struct {
 static void be_skip_space(Be_Parser* parser) {
     while (isspace((unsigned char)parser->position[0])) {
         if (parser->position[0] == '\n') {
-            parser->line++;
-            parser->column = 1;
-        } else parser->column++;
+            parser->position_line++;
+            parser->position_column = 1;
+        } else parser->position_column++;
         parser->position++;
     }
 }
@@ -68,7 +71,7 @@ static Be_Token be_token(Be_Parser* parser, Be_Token token, int len) {
     parser->token = token;
     parser->symbol = (Be_String){ .str = parser->position, .len = len };
     parser->position += len;
-    parser->column += len;
+    parser->position_column += len;
     return token;
 }
 
@@ -95,7 +98,9 @@ static Be_Token be_keyword_kind(Be_Parser* parser, int len) {
         case 'f':
             return be_is_keyword(parser, len, "func", 4) ? BE_TOKEN_FUNC : BE_TOKEN_LABEL;
         case 'i':
-            return be_is_keyword(parser, len, "i", 1) ? BE_TOKEN_I: BE_TOKEN_LABEL;
+            return be_is_keyword(parser, len, "i", 1) ? BE_TOKEN_I : BE_TOKEN_LABEL;
+        case 'l':
+            return be_is_keyword(parser, len, "l", 1) ? BE_TOKEN_L : BE_TOKEN_LABEL;
         case 'r':
             return be_is_keyword(parser, len, "ret", 3) ? BE_TOKEN_RET: BE_TOKEN_LABEL;
         default:
@@ -118,6 +123,8 @@ static Be_Token be_number(Be_Parser* parser) {
 
 static Be_Token be_next_token(Be_Parser* parser) {
     be_skip_junk(parser);
+    parser->line = parser->position_line;
+    parser->column = parser->position_column;
     switch (parser->position[0]) {
         case '\0':
             return be_token(parser, BE_TOKEN_EOF, 0);
@@ -168,24 +175,27 @@ static void be_expect(Be_Parser* parser, Be_Token token, const char* msg) {
     longjmp(parser->env, 1);
 }
 
-static Be_Type be_parse_type(Be_Parser* parser) {
+static Be_Type be_parse_type(Be_Parser* parser, const char* msg) {
     switch (parser->token) {
         case BE_TOKEN_I:
             be_next_token(parser);
             return BE_TYPE_INT;
+        case BE_TOKEN_L:
+            be_next_token(parser);
+            return BE_TYPE_LONG;
         default:
             be_error(
                 parser->filename,
                 parser->line,
                 parser->column,
-                "expected type"
+                msg
             );
             break;
     }
     longjmp(parser->env, 1);
 }
 
-static int be_push_value(Be_Parser* parser, Be_Function* function) {
+static int be_push_value(Be_Parser* parser, Be_Function* function, bool defined) {
     Be_Value* value;
     for (int i = 0; i < function->values.size; i++) {
         value = function->values.elements[i];
@@ -196,6 +206,9 @@ static int be_push_value(Be_Parser* parser, Be_Function* function) {
     value = be_value(parser->arena);
     value->name = parser->symbol;
     value->id = be_vector_push(&function->values, value);
+    value->line = parser->line;
+    value->column = parser->column;
+    value->defined = defined;
     return value->id;
 }
 
@@ -204,7 +217,7 @@ static void be_parse_operand(Be_Parser* parser, Be_Function* function, Be_Operan
     switch (parser->token) {
         case BE_TOKEN_LOCAL:
             operand->kind = BE_OPERAND_VALUE;
-            operand->value_id = be_push_value(parser, function);
+            operand->value_id = be_push_value(parser, function, false);
             break;
         case BE_TOKEN_INT:
             operand->kind = BE_OPERAND_INT;
@@ -231,10 +244,10 @@ static void be_parse_operand(Be_Parser* parser, Be_Function* function, Be_Operan
 static Be_Instruction* be_parse_instruction(Be_Parser* parser, Be_Function* function) {
     Be_Instruction* instruction = be_instruction(parser->arena);
     if (parser->token == BE_TOKEN_LOCAL) {
-        instruction->result_id = be_push_value(parser, function);
+        instruction->result_id = be_push_value(parser, function, true);
         be_next_token(parser);
         be_expect(parser, BE_TOKEN_EQSIGN, "expected `=`");
-        instruction->type = be_parse_type(parser);
+        instruction->type = be_parse_type(parser, "expected instruction type");
     } else instruction->type = BE_TYPE_VOID;
     switch (parser->token) {
         case BE_TOKEN_INT:
@@ -272,46 +285,47 @@ static bool be_at_terminator(const Be_Parser* parser) {
     }
 }
 
-static int be_push_block(Be_Parser* parser, Be_Function* function) {
-    Be_Block* block;
-    for (int i = 0; i < function->blocks.size; i++) {
-        block = function->blocks.elements[i];
-        if (block->label.len != parser->symbol.len) continue;
-        if (strncmp(block->label.str, parser->symbol.str, block->label.len)) continue;
-        return i;
-    }
-    block = be_block(parser->arena);
-    block->label = parser->symbol;
-    block->id = be_vector_push(&function->blocks, block);
-    return block->id;
-}
-
 static void be_parse_terminator(Be_Parser* parser, Be_Function* function, Be_Block* block) {
     switch (parser->token) {
         case BE_TOKEN_RET:
             block->terminator.kind = BE_TERMINATOR_RET;
+            block->terminator.ret.line = parser->line;
+            block->terminator.ret.column = parser->column;
             be_next_token(parser);
-            block->terminator.ret.type = be_parse_type(parser);
+            block->terminator.ret.type = be_parse_type(parser, "expected return type");
             be_parse_operand(parser, function, &block->terminator.ret.operand);
             break;
         case BE_TOKEN_BR:
             block->terminator.kind = BE_TERMINATOR_BR;
             be_next_token(parser);
-            be_push_block(parser, function);
+            block->terminator.br.block = (Be_Block_Reference){
+                .label = parser->symbol,
+                .block_id = -1,
+                .line = parser->line,
+                .column = parser->column,
+            };
             be_expect(parser, BE_TOKEN_LABEL, "expected label");
             break;
         case BE_TOKEN_CBR:
             block->terminator.kind = BE_TERMINATOR_CBR;
             be_next_token(parser);
-            block->terminator.cbr.type = be_parse_type(parser);
+            block->terminator.cbr.type = be_parse_type(parser, "expected condition type");
             be_parse_operand(parser, function, &block->terminator.cbr.condition);
             be_expect(parser, BE_TOKEN_COMMA, "expected `,`");
-            block->terminator.cbr.true_block.label = parser->symbol;
-            block->terminator.cbr.true_block.block_id = be_push_block(parser, function);
+            block->terminator.cbr.true_block = (Be_Block_Reference){
+                .label = parser->symbol,
+                .block_id = -1,
+                .line = parser->line,
+                .column = parser->column,
+            };
             be_expect(parser, BE_TOKEN_LABEL, "expected label");
             be_expect(parser, BE_TOKEN_COMMA, "expected `,`");
-            block->terminator.cbr.false_block.label = parser->symbol;
-            block->terminator.cbr.false_block.block_id = be_push_block(parser, function);
+            block->terminator.cbr.false_block = (Be_Block_Reference){
+                .label = parser->symbol,
+                .block_id = -1,
+                .line = parser->line,
+                .column = parser->column,
+            };
             be_expect(parser, BE_TOKEN_LABEL, "expected label");
             break;
         default:
@@ -320,9 +334,9 @@ static void be_parse_terminator(Be_Parser* parser, Be_Function* function, Be_Blo
     }
 }
 
-static void be_parse_block(Be_Parser* parser, Be_Function* function) {
-    int id = be_push_block(parser, function);
-    Be_Block* block = be_get_block(function, id);
+static Be_Block* be_parse_block(Be_Parser* parser, Be_Function* function) {
+    Be_Block* block = be_block(parser->arena);
+    block->label = parser->symbol;
     be_expect(parser, BE_TOKEN_LABEL, "expected label");
     be_expect(parser, BE_TOKEN_COLON, "expected `:`");
     while (!be_at_terminator(parser)) {
@@ -330,13 +344,14 @@ static void be_parse_block(Be_Parser* parser, Be_Function* function) {
         be_vector_push(&block->instructions, instruction);
     }
     be_parse_terminator(parser, function, block);
+    return block;
 }
 
 static void be_parse_parameters(Be_Parser* parser, Be_Function* function) {
     be_expect(parser, BE_TOKEN_LPAREN, "expected `(`");
     while (!be_accept(parser, BE_TOKEN_RPAREN)) {
         // FIXME: Currently throwing away the parameters
-        be_parse_type(parser);
+        be_parse_type(parser, "expected parameter type");
         be_expect(parser, BE_TOKEN_LOCAL, "expected local name");
         be_vector_push(&function->parameters, NULL);
         be_accept(parser, BE_TOKEN_COMMA);
@@ -345,17 +360,21 @@ static void be_parse_parameters(Be_Parser* parser, Be_Function* function) {
 
 static Be_Function* be_parse_function(Be_Parser* parser) {
     Be_Function* function = be_function(parser->arena);
-    function->type = be_parse_type(parser);
+    function->type = be_parse_type(parser, "expected function type");
     function->name = parser->symbol;
-    be_expect(parser, BE_TOKEN_GLOBAL, "expected global name");
+    be_expect(parser, BE_TOKEN_GLOBAL, "expected global name for function");
     be_parse_parameters(parser, function);
     be_expect(parser, BE_TOKEN_LBRACE, "expected `{` after function parameters");
-    while (parser->token != BE_TOKEN_RBRACE) be_parse_block(parser, function);
+    while (parser->token != BE_TOKEN_RBRACE) {
+        Be_Block* block = be_parse_block(parser, function);
+        block->id = be_vector_push(&function->blocks, block);
+    }
     return function;
 }
 
 Be_Module* be_parse_module(Be_Parser* parser) {
     Be_Module* module = be_module(parser->arena);
+    module->filename = parser->filename;
     be_next_token(parser);
     while (parser->token != BE_TOKEN_EOF) {
         be_expect(parser, BE_TOKEN_FUNC, "expected `func`");
@@ -372,8 +391,8 @@ Be_Module* be_parse(Be_Arena* arena, const char* filename, const char* source) {
         .filename = filename,
         .source = source,
         .position = source,
-        .line = 1,
-        .column = 1,
+        .position_line = 1,
+        .position_column = 1,
     };
     if (setjmp(parser.env) == 0) return be_parse_module(&parser);
     else return NULL;

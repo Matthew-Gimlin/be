@@ -3,6 +3,7 @@
 
 #include <stdnoreturn.h>
 #include <stddef.h>
+#include <stdalign.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -70,6 +71,9 @@ typedef struct {
     Be_String name;
     Be_Type type;
     int id;
+    int line;
+    int column;
+    bool defined;
 } Be_Value;
 
 typedef enum {
@@ -113,7 +117,12 @@ typedef enum {
     BE_TERMINATOR_CBR,
 } Be_Terminator_Kind;
 
-typedef struct { Be_String label; int block_id; } Be_Block_Reference;
+typedef struct {
+    Be_String label;
+    int block_id;
+    int line;
+    int column;
+} Be_Block_Reference;
 
 typedef struct {
     Be_Terminator_Kind kind;
@@ -121,6 +130,8 @@ typedef struct {
         struct {
             Be_Type type;
             Be_Operand operand;
+            int line;
+            int column;
         } ret;
         struct {
             Be_Block_Reference block;
@@ -151,7 +162,10 @@ typedef struct {
     Be_Vector blocks;
 } Be_Function;
 
-typedef struct { Be_Vector functions; } Be_Module;
+typedef struct {
+    const char* filename;
+    Be_Vector functions;
+} Be_Module;
 
 Be_Value* be_value(Be_Arena* arena);
 Be_Operand* be_operand(Be_Arena* arena);
@@ -165,7 +179,11 @@ Be_Value* be_get_value(Be_Function* function, int id);
 Be_Block* be_get_block(Be_Function* function, int id);
 
 Be_Module* be_parse(Be_Arena* arena, const char* filename, const char* source);
+bool be_resolve(Be_Module* module);
+
+const char* be_type_symbol(Be_Type type);
 void be_dump(FILE* f, const Be_Module* module);
+
 void be_fold(Be_Module* module);
 
 void be_simplify_branches(Be_Module* module);

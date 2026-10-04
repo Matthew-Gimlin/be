@@ -8,7 +8,4 @@ true:
 
 false:
     ret i 1
-
-unreachable:
-    ret i 2
 }

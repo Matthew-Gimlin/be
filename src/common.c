@@ -140,6 +140,7 @@ Be_Value* be_value(Be_Arena* arena) {
     Be_Value* value = be_arena_alloc(arena, sizeof(Be_Value), alignof(Be_Value));
     value->type = BE_TYPE_ERROR;
     value->id = -1;
+    value->defined = false;
     return value;
 }
 
@@ -202,4 +203,17 @@ Be_Block* be_get_block(Be_Function* function, int id) {
         if (block->id == id) return block;
     }
     return NULL;
+}
+
+const char* be_type_symbol(Be_Type type) {
+    switch (type) {
+        case BE_TYPE_VOID: return "v";
+        case BE_TYPE_BYTE: return "b";
+        case BE_TYPE_SHORT: return "s";
+        case BE_TYPE_INT: return "i";
+        case BE_TYPE_LONG: return "l";
+        case BE_TYPE_FLOAT: return "f";
+        case BE_TYPE_DOUBLE: return "d";
+        default: return "?";
+    }
 }

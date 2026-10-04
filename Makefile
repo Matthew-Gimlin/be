@@ -1,5 +1,5 @@
 CC = cc
-CFLAGS = -Wall -Wextra -Wpedantic -O0 -ggdb
+CFLAGS = -Wall -Wextra -Wpedantic -std=c11 -O0 -ggdb
 SRCS = $(wildcard src/*.c)
 EXEC = be
 
