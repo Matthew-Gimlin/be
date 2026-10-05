@@ -1,0 +1,5 @@
+func i @main(i %0, i %1) {
+entry:
+    %2 = i add %0, %1
+    ret i %2
+}

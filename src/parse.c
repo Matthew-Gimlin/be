@@ -362,10 +362,15 @@ static Be_Block* be_parse_block(Be_Parser* parser, Be_Function* function) {
 static void be_parse_parameters(Be_Parser* parser, Be_Function* function) {
     be_expect(parser, BE_TOKEN_LPAREN, "expected `(`");
     while (!be_accept(parser, BE_TOKEN_RPAREN)) {
-        // FIXME: Currently throwing away the parameters
-        be_parse_type(parser, "expected parameter type");
+        Be_Value* value = be_value(parser->arena);
+        value->defined = true;
+        value->type = be_parse_type(parser, "expected parameter type");
+        value->name = parser->symbol;
+        value->line = parser->line;
+        value->column = parser->column;
         be_expect(parser, BE_TOKEN_LOCAL, "expected local name");
-        be_vector_push(&function->parameters, NULL);
+        be_vector_push(&function->parameters, value);
+        value->id = be_vector_push(&function->values, value);
         be_accept(parser, BE_TOKEN_COMMA);
     }
 }

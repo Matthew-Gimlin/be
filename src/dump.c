@@ -97,7 +97,13 @@ static void be_dump_block(FILE* f, const Be_Function* function, const Be_Block* 
 
 static void be_dump_function(FILE* f, const Be_Function* function) {
     if (!function) return;
-    fprintf(f, "func %s %.*s() {\n", be_type_symbol(function->type), function->name.len, function->name.str);
+    fprintf(f, "func %s %.*s(", be_type_symbol(function->type), function->name.len, function->name.str);
+    for (int i = 0; i < function->parameters.size; i++) {
+        Be_Value* value = function->parameters.elements[i];
+        fprintf(f, "%s %.*s", be_type_symbol(value->type), value->name.len, value->name.str);
+        if (i < function->parameters.size - 1) fprintf(f, ", ");
+    }
+    fprintf(f, ") {\n");
     for (int i = 0; i < function->blocks.size; i++) {
         be_dump_block(f, function, function->blocks.elements[i]);
         if (i < function->blocks.size - 1) fprintf(f, "\n");
