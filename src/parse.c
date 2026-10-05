@@ -2,7 +2,6 @@
 #include <setjmp.h>
 #include <ctype.h>
 #include <stdbool.h>
-#include <string.h>
 #include <stdlib.h>
 
 typedef enum {
@@ -18,6 +17,8 @@ typedef enum {
     BE_TOKEN_EQ,        // `eq` keyword
     BE_TOKEN_FUNC,      // `func` keyword
     BE_TOKEN_RET,       // `ret` keyword
+    BE_TOKEN_B,         // `b` keyword
+    BE_TOKEN_S,         // `s` keyword
     BE_TOKEN_I,         // `i` keyword
     BE_TOKEN_L,         // `l` keyword
     BE_TOKEN_LPAREN,    // `(` symbol
@@ -35,8 +36,6 @@ typedef struct {
     const char* const filename;
     const char* const source;
     const char* position;
-    int position_line;
-    int position_column;
     Be_Token token;
     Be_String symbol;
     int line;
@@ -46,18 +45,15 @@ typedef struct {
 static void be_skip_space(Be_Parser* parser) {
     while (isspace((unsigned char)parser->position[0])) {
         if (parser->position[0] == '\n') {
-            parser->position_line++;
-            parser->position_column = 1;
-        } else parser->position_column++;
+            parser->line++;
+            parser->column = 1;
+        } else parser->column++;
         parser->position++;
     }
 }
 
 static void be_skip_comment(Be_Parser* parser) {
-    do {
-        parser->position++;
-        parser->column++;
-    } while (parser->position[0] && parser->position[0] != '\n');
+    do parser->position++; while (parser->position[0] && parser->position[0] != '\n');
 }
 
 static void be_skip_junk(Be_Parser* parser) {
@@ -71,7 +67,6 @@ static Be_Token be_token(Be_Parser* parser, Be_Token token, int len) {
     parser->token = token;
     parser->symbol = (Be_String){ .str = parser->position, .len = len };
     parser->position += len;
-    parser->position_column += len;
     return token;
 }
 
@@ -82,7 +77,7 @@ static Be_Token be_name(Be_Parser* parser, Be_Token token) {
 }
 
 static inline bool be_is_keyword(Be_Parser* parser, int len, const char* keyword, int keyword_len) {
-    return len == keyword_len && strncmp(parser->position, keyword, len) == 0;
+    return be_string_equals((Be_String){parser->position, len}, (Be_String){keyword, keyword_len});
 }
 
 static Be_Token be_keyword_kind(Be_Parser* parser, int len) {
@@ -90,7 +85,8 @@ static Be_Token be_keyword_kind(Be_Parser* parser, int len) {
         case 'a':
             return be_is_keyword(parser, len, "add", 3) ? BE_TOKEN_ADD : BE_TOKEN_LABEL;
         case 'b':
-            return be_is_keyword(parser, len, "br", 2) ? BE_TOKEN_BR : BE_TOKEN_LABEL;
+            return be_is_keyword(parser, len, "b", 1) ? BE_TOKEN_B
+                : be_is_keyword(parser, len, "br", 2) ? BE_TOKEN_BR : BE_TOKEN_LABEL;
         case 'c':
             return be_is_keyword(parser, len, "cbr", 3) ? BE_TOKEN_CBR : BE_TOKEN_LABEL;
         case 'e':
@@ -103,6 +99,8 @@ static Be_Token be_keyword_kind(Be_Parser* parser, int len) {
             return be_is_keyword(parser, len, "l", 1) ? BE_TOKEN_L : BE_TOKEN_LABEL;
         case 'r':
             return be_is_keyword(parser, len, "ret", 3) ? BE_TOKEN_RET: BE_TOKEN_LABEL;
+        case 's':
+            return be_is_keyword(parser, len, "s", 1) ? BE_TOKEN_S : BE_TOKEN_LABEL;
         default:
             return BE_TOKEN_LABEL;
     }
@@ -122,9 +120,8 @@ static Be_Token be_number(Be_Parser* parser) {
 }
 
 static Be_Token be_next_token(Be_Parser* parser) {
+    parser->column += parser->symbol.len;
     be_skip_junk(parser);
-    parser->line = parser->position_line;
-    parser->column = parser->position_column;
     switch (parser->position[0]) {
         case '\0':
             return be_token(parser, BE_TOKEN_EOF, 0);
@@ -151,7 +148,14 @@ static Be_Token be_next_token(Be_Parser* parser) {
     }
     if (isalpha((unsigned char)parser->position[0])) return be_keyword(parser);
     if (isdigit((unsigned char)parser->position[0])) return be_number(parser);
-    return be_token(parser, BE_TOKEN_ERROR, 1);
+    be_error(
+        parser->filename,
+        parser->line,
+        parser->column,
+        "unknown symbol `%c`",
+        parser->position[0]
+    );
+    longjmp(parser->env, 1);
 }
 
 static bool be_accept(Be_Parser* parser, Be_Token token) {
@@ -167,11 +171,21 @@ static void be_expect(Be_Parser* parser, Be_Token token, const char* msg) {
         be_next_token(parser);
         return;
     }
-    if (parser->token == BE_TOKEN_EOF) {
-        be_error(parser->filename, parser->line, parser->column, "%s instead of end of file", msg);
-    } else {
-        be_error(parser->filename, parser->line, parser->column, "%s instead of `%.*s`", msg, parser->symbol.len, parser->symbol.str);
-    }
+    if (parser->token == BE_TOKEN_EOF) be_error(
+        parser->filename,
+        parser->line,
+        parser->column,
+        "%s instead of end of file",
+        msg
+    ); else be_error(
+        parser->filename,
+        parser->line,
+        parser->column,
+        "%s instead of `%.*s`",
+        msg,
+        parser->symbol.len,
+        parser->symbol.str
+    );
     longjmp(parser->env, 1);
 }
 
@@ -199,9 +213,7 @@ static int be_push_value(Be_Parser* parser, Be_Function* function, bool defined)
     Be_Value* value;
     for (int i = 0; i < function->values.size; i++) {
         value = function->values.elements[i];
-        if (value->name.len != parser->symbol.len) continue;
-        if (strncmp(value->name.str, parser->symbol.str, parser->symbol.len)) continue;
-        return i;
+        if (be_string_equals(value->name, parser->symbol)) return i;
     }
     value = be_value(parser->arena);
     value->name = parser->symbol;
@@ -391,8 +403,9 @@ Be_Module* be_parse(Be_Arena* arena, const char* filename, const char* source) {
         .filename = filename,
         .source = source,
         .position = source,
-        .position_line = 1,
-        .position_column = 1,
+        .symbol = (Be_String){0},
+        .line = 1,
+        .column = 1,
     };
     if (setjmp(parser.env) == 0) return be_parse_module(&parser);
     else return NULL;

@@ -33,6 +33,9 @@ static void be_track_terminator(const Be_Terminator* terminator, int* usages) {
         case BE_TERMINATOR_RET:
             be_track_operand(&terminator->ret.operand, usages);
             break;
+        case BE_TERMINATOR_CBR:
+            be_track_operand(&terminator->cbr.condition, usages);
+            break;
         default:
             break;
     }
@@ -51,7 +54,8 @@ static void be_track_function(const Be_Function* function, int* usages) {
     }
 }
 
-static void be_simplify_block(Be_Block* block, const int* usages) {
+static bool be_simplify_block(Be_Block* block, const int* usages) {
+    bool changed = false;
     for (int i = 0; i < block->instructions.size; i++) {
         Be_Instruction* instruction = block->instructions.elements[i];
         switch (instruction->kind) {
@@ -60,22 +64,27 @@ static void be_simplify_block(Be_Block* block, const int* usages) {
                 if (instruction->result_id >= 0 && usages[instruction->result_id] > 0) break;
                 be_vector_remove(&block->instructions, i);
                 i--;
+                changed = true;
                 break;
             default:
                 break;
         }
     }
+    return changed;
 }
 
-static void be_simplify_function(Be_Function* function, const int* usages) {
+static bool be_simplify_function(Be_Function* function, const int* usages) {
+    bool changed = false;
     for (int i = 0; i < function->blocks.size; i++) {
-        be_simplify_block(function->blocks.elements[i], usages);
+        changed |= be_simplify_block(function->blocks.elements[i], usages);
     }
+    return changed;
 }
 
-void be_simplify(Be_Module* module) {
+bool be_simplify(Be_Module* module) {
     Be_Arena scratch;
     be_init_arena(&scratch);
+    bool changed = false;
     for (int i = 0; i < module->functions.size; i++) {
         Be_Function* function = module->functions.elements[i];
         int* usages = be_arena_alloc(
@@ -85,12 +94,14 @@ void be_simplify(Be_Module* module) {
         );
         memset(usages, 0, function->values.size * sizeof(int));
         be_track_function(function, usages);
-        be_simplify_function(function, usages);
+        changed |= be_simplify_function(function, usages);
     }
     be_free_arena(&scratch);
+    return changed;
 }
 
-static void be_simplify_branches_function(Be_Function* function) {
+static bool be_simplify_branches_function(Be_Function* function) {
+    bool changed = false;
     for (int i = 0; i < function->blocks.size; i++) {
         Be_Block* block = function->blocks.elements[i];
         if (block->terminator.kind != BE_TERMINATOR_BR) continue;
@@ -100,14 +111,15 @@ static void be_simplify_branches_function(Be_Function* function) {
         be_vector_combine(&block->instructions, &successor->instructions);
         block->terminator = successor->terminator;
         block->successors = successor->successors;
-        successor->instructions.size = 0;
-        successor->predecessors.size = 0;
-        successor->successors.size = 0;
+        changed = true;
     }
+    return changed;
 }
 
-void be_simplify_branches(Be_Module* module) {
+bool be_simplify_branches(Be_Module* module) {
+    bool changed = false;
     for (int i = 0; i < module->functions.size; i++) {
-        be_simplify_branches_function(module->functions.elements[i]);
+        changed |= be_simplify_branches_function(module->functions.elements[i]);
     }
+    return changed;
 }

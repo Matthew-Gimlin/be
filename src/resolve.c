@@ -3,6 +3,7 @@
 #include <string.h>
 
 typedef struct {
+    jmp_buf env;
     const char* filename;
 } Be_Resolver;
 
@@ -17,95 +18,95 @@ static bool be_resolve_block_reference(const Be_Function* function, Be_Block_Ref
     return false;
 }
 
-static bool be_resolve_terminator(Be_Module* module, Be_Function* function, Be_Block* block) {
+static void be_resolve_terminator(Be_Resolver* resolver, Be_Function* function, Be_Block* block) {
     switch (block->terminator.kind) {
         case BE_TERMINATOR_RET:
             if (block->terminator.ret.type != function->type) {
                 be_error(
-                    module->filename,
+                    resolver->filename,
                     block->terminator.ret.line,
                     block->terminator.ret.column,
                     "terminator returns type `%s` but function is type `%s`",
                     be_type_symbol(block->terminator.ret.type),
                     be_type_symbol(function->type)
                 );
-                return false;
+                longjmp(resolver->env, 1);
             }
             break;
         case BE_TERMINATOR_BR:
             if (!be_resolve_block_reference(function, &block->terminator.br.block)) {
                 be_error(
-                    module->filename,
+                    resolver->filename,
                     block->terminator.br.block.line,
                     block->terminator.br.block.column,
-                    "undefined label `%.*s`",
+                    "undefined block `%.*s`",
                     block->terminator.br.block.label.len,
                     block->terminator.br.block.label.str
                 );
-                return false;
+                longjmp(resolver->env, 1);
             }
             break;
         case BE_TERMINATOR_CBR:
             if (!be_resolve_block_reference(function, &block->terminator.cbr.true_block)) {
                 be_error(
-                    module->filename,
+                    resolver->filename,
                     block->terminator.cbr.true_block.line,
                     block->terminator.cbr.true_block.column,
-                    "undefined label `%.*s`",
+                    "undefined block `%.*s`",
                     block->terminator.cbr.true_block.label.len,
                     block->terminator.cbr.true_block.label.str
                 );
-                return false;
+                longjmp(resolver->env, 1);
             }
             if (!be_resolve_block_reference(function, &block->terminator.cbr.false_block)) {
                 be_error(
-                    module->filename,
+                    resolver->filename,
                     block->terminator.cbr.false_block.line,
                     block->terminator.cbr.false_block.column,
-                    "undefined label `%.*s`",
+                    "undefined block `%.*s`",
                     block->terminator.cbr.false_block.label.len,
                     block->terminator.cbr.false_block.label.str
                 );
-                return false;
+                longjmp(resolver->env, 1);
             }
             break;
         default:
-            // BE_TODO("verify terminators");
             break;
     }
-    return true;
 }
 
-static bool be_resolve_block(Be_Module* module, Be_Function* function, Be_Block* block) {
+static void be_resolve_block(Be_Resolver* resolver, Be_Function* function, Be_Block* block) {
     for (int i = 0; i < function->values.size; i++) {
         Be_Value* value = function->values.elements[i];
         if (!value->defined) {
             be_error(
-                module->filename,
+                resolver->filename,
                 value->line,
                 value->column,
                 "undefined value `%.*s`",
                 value->name.len,
                 value->name.str
             );
-            return false;
+            longjmp(resolver->env, 1);
         }
     }
-    return be_resolve_terminator(module, function, block);
+    be_resolve_terminator(resolver, function, block);
 }
 
-static bool be_resolve_function(Be_Module* module, Be_Function* function) {
-    bool valid = true;
+static void be_resolve_function(Be_Resolver* resolver, Be_Function* function) {
     for (int i = 0; i < function->blocks.size; i++) {
-        valid &= be_resolve_block(module, function, function->blocks.elements[i]);
+        be_resolve_block(resolver, function, function->blocks.elements[i]);
     }
-    return valid;
 }
 
 bool be_resolve(Be_Module* module) {
-    bool valid = true;
-    for (int i = 0; i < module->functions.size; i++) {
-        valid &= be_resolve_function(module, module->functions.elements[i]);
-    }
-    return valid;
+    Be_Resolver resolver = {
+        .filename = module->filename,
+    };
+    if (setjmp(resolver.env) == 0) {
+        for (int i = 0; i < module->functions.size; i++) {
+            be_resolve_function(&resolver, module->functions.elements[i]);
+        }
+        return true;
+    } else return false;
 }

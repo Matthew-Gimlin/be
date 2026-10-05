@@ -21,6 +21,7 @@ void be_error(const char* filename, int line, int column, const char* format, ..
 noreturn void be_fatal(const char* format, ...);
 
 typedef struct { const char* str; int len; } Be_String;
+bool be_string_equals(Be_String a, Be_String b);
 
 #define BE_ARENA_DEFAULT_CAPACITY 2048
 
@@ -184,12 +185,12 @@ bool be_resolve(Be_Module* module);
 const char* be_type_symbol(Be_Type type);
 void be_dump(FILE* f, const Be_Module* module);
 
-void be_fold(Be_Module* module);
-
-void be_simplify_branches(Be_Module* module);
-void be_simplify(Be_Module* module);
-
+// Optimization passes
+bool be_fold(Be_Module* module);
 void be_build_cfg(Be_Module* module);
-void be_remove_unreachable(Be_Module* module);
+bool be_simplify_branches(Be_Module* module);
+bool be_simplify(Be_Module* module);
+bool be_remove_unreachable(Be_Module* module);
+void be_optimize(Be_Module* module);
 
 #endif

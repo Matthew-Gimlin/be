@@ -29,11 +29,11 @@ static int64_t be_get_constant(const Be_Operand* operand, const Be_Constant* con
         case BE_OPERAND_FLOAT:
             return operand->int_const;
         default:
-            return false;
+            return 0;
     }
 }
 
-static void be_fold_instruction(Be_Instruction* instruction, Be_Constant* constants) {
+static bool be_fold_instruction(Be_Instruction* instruction, Be_Constant* constants) {
     int id = instruction->result_id;
     switch (instruction->kind) {
         case BE_INSTRUCTION_CONST:
@@ -43,7 +43,7 @@ static void be_fold_instruction(Be_Instruction* instruction, Be_Constant* consta
                     .int_const = instruction->constant.operand.int_const,
                 };
             } else constants[id].known = false;
-            break;
+            return false;
         case BE_INSTRUCTION_ADD:
             if (be_is_known(&instruction->binary.lhs, constants)
                     && be_is_known(&instruction->binary.rhs, constants)) {
@@ -57,8 +57,9 @@ static void be_fold_instruction(Be_Instruction* instruction, Be_Constant* consta
                     .known = true,
                     .int_const = instruction->constant.operand.int_const,
                 };
+                return true;
             } else constants[id].known = false;
-            break;
+            return false;
         case BE_INSTRUCTION_EQ:
             if (be_is_known(&instruction->binary.lhs, constants)
                     && be_is_known(&instruction->binary.rhs, constants)) {
@@ -72,52 +73,60 @@ static void be_fold_instruction(Be_Instruction* instruction, Be_Constant* consta
                     .known = true,
                     .int_const = instruction->constant.operand.int_const,
                 };
+                return true;
             } else constants[id].known = false;
-            break;
+            return false;
         default:
-            break;
+            return false;
     }
 }
 
-static void be_fold_terminator(Be_Terminator* terminator, Be_Constant* constants) {
+static bool be_fold_terminator(Be_Terminator* terminator, Be_Constant* constants) {
     switch (terminator->kind) {
         case BE_TERMINATOR_RET:
-            if (be_is_known(&terminator->ret.operand, constants)) {
+            if (terminator->ret.operand.kind == BE_OPERAND_VALUE && be_is_known(&terminator->ret.operand, constants)) {
                 terminator->ret.operand = (Be_Operand){
                     .kind = BE_OPERAND_INT,
                     .int_const = be_get_constant(&terminator->ret.operand, constants),
                 };
+                return true;
             }
-            break;
+            return false;
         case BE_TERMINATOR_CBR:
-            if (be_is_known(&terminator->cbr.condition, constants)) {
+            if (terminator->ret.operand.kind == BE_OPERAND_VALUE && be_is_known(&terminator->cbr.condition, constants)) {
                 terminator->kind = BE_TERMINATOR_BR;
                 int64_t condition = be_get_constant(&terminator->cbr.condition, constants);
                 if (condition) terminator->br.block = terminator->cbr.true_block;
                 else terminator->br.block = terminator->cbr.false_block;
+                return true;
             }
-            break;
+            return false;
         default:
-            break;
+            return false;
     }
 }
 
-static void be_fold_block(Be_Block* block, Be_Constant* constants) {
+static bool be_fold_block(Be_Block* block, Be_Constant* constants) {
+    bool changed = false;
     for (int i = 0; i < block->instructions.size; i++) {
-        be_fold_instruction(block->instructions.elements[i], constants);
+        changed |= be_fold_instruction(block->instructions.elements[i], constants);
     }
-    be_fold_terminator(&block->terminator, constants);
+    changed |= be_fold_terminator(&block->terminator, constants);
+    return changed;
 }
 
-static void be_fold_function(Be_Function* function, Be_Constant* constants) {
+static bool be_fold_function(Be_Function* function, Be_Constant* constants) {
+    bool changed = false;
     for (int i = 0; i < function->blocks.size; i++) {
-        be_fold_block(function->blocks.elements[i], constants);
+        changed |= be_fold_block(function->blocks.elements[i], constants);
     }
+    return changed;
 }
 
-void be_fold(Be_Module* module) {
+bool be_fold(Be_Module* module) {
     Be_Arena scratch;
     be_init_arena(&scratch);
+    bool changed = false;
     for (int i = 0; i < module->functions.size; i++) {
         Be_Function* function = module->functions.elements[i];
         Be_Constant* constants = be_arena_alloc(
@@ -126,7 +135,8 @@ void be_fold(Be_Module* module) {
             alignof(Be_Constant)
         );
         memset(constants, 0, function->values.size * sizeof(Be_Constant));
-        be_fold_function(function, constants);
+        changed |= be_fold_function(function, constants);
     }
     be_free_arena(&scratch);
+    return changed;
 }

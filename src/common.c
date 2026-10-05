@@ -23,6 +23,10 @@ void be_error(const char* filename, int line, int column, const char* format, ..
     fprintf(stderr, "\n");
 }
 
+inline bool be_string_equals(Be_String a, Be_String b) {
+    return a.len == b.len && strncmp(a.str, b.str, a.len) == 0;
+}
+
 void be_init_arena(Be_Arena* arena) { arena->head = arena->tail = NULL; }
 
 void be_free_arena(Be_Arena* arena) {
