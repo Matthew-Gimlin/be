@@ -93,7 +93,8 @@ static bool be_fold_terminator(Be_Terminator* terminator, Be_Constant* constants
             }
             return false;
         case BE_TERMINATOR_CBR:
-            if (terminator->ret.operand.kind == BE_OPERAND_VALUE && be_is_known(&terminator->cbr.condition, constants)) {
+            if (terminator->cbr.condition.kind == BE_OPERAND_VALUE
+                    && be_is_known(&terminator->cbr.condition, constants)) {
                 terminator->kind = BE_TERMINATOR_BR;
                 int64_t condition = be_get_constant(&terminator->cbr.condition, constants);
                 if (condition) terminator->br.block = terminator->cbr.true_block;
@@ -118,6 +119,7 @@ static bool be_fold_block(Be_Block* block, Be_Constant* constants) {
 static bool be_fold_function(Be_Function* function, Be_Constant* constants) {
     bool changed = false;
     for (int i = 0; i < function->blocks.size; i++) {
+        memset(constants, 0, function->values.capacity * sizeof(Be_Constant));
         changed |= be_fold_block(function->blocks.elements[i], constants);
     }
     return changed;
@@ -131,10 +133,9 @@ bool be_fold(Be_Module* module) {
         Be_Function* function = module->functions.elements[i];
         Be_Constant* constants = be_arena_alloc(
             &scratch,
-            function->values.size * sizeof(Be_Constant),
+            function->values.capacity * sizeof(Be_Constant),
             alignof(Be_Constant)
         );
-        memset(constants, 0, function->values.size * sizeof(Be_Constant));
         changed |= be_fold_function(function, constants);
     }
     be_free_arena(&scratch);

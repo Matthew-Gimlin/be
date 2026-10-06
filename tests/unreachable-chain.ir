@@ -1,0 +1,16 @@
+func i @main() {
+entry:
+    ret i 0
+
+unreachable0:
+    br unreachable1
+
+unreachable1:
+    br unreachable2
+
+unreachable2:
+    br unreachable3
+
+unreachable3:
+    ret i 1
+}

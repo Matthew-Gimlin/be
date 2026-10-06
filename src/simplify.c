@@ -1,9 +1,6 @@
 #include "be.h"
 #include <string.h>
 
-// DEBUG
-#include <stdio.h>
-
 static void be_track_operand(const Be_Operand* operand, int* usages) {
     switch (operand->kind) {
         case BE_OPERAND_VALUE:
@@ -20,6 +17,7 @@ static void be_track_instruction(const Be_Instruction* instruction, int* usages)
             be_track_operand(&instruction->constant.operand, usages);
             break;
         case BE_INSTRUCTION_ADD:
+        case BE_INSTRUCTION_EQ:
             be_track_operand(&instruction->binary.lhs, usages);
             be_track_operand(&instruction->binary.rhs, usages);
             break;
@@ -61,6 +59,7 @@ static bool be_simplify_block(Be_Block* block, const int* usages) {
         switch (instruction->kind) {
             case BE_INSTRUCTION_CONST:
             case BE_INSTRUCTION_ADD:
+            case BE_INSTRUCTION_EQ:
                 if (instruction->result_id >= 0 && usages[instruction->result_id] > 0) break;
                 be_vector_remove(&block->instructions, i);
                 i--;

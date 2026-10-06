@@ -7,7 +7,9 @@ void be_optimize(Be_Module* module) {
         changed |= be_fold(module);
         be_build_cfg(module);
         changed |= be_simplify_branches(module);
-        changed |= be_simplify(module);
+        be_build_cfg(module);
         changed |= be_remove_unreachable(module);
+        be_build_cfg(module);
+        changed |= be_simplify(module);
     } while (changed);
 }

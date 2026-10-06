@@ -1,4 +1,5 @@
 #include "be.h"
+#include <string.h>
 
 static void be_edge(Be_Block* from, Be_Block* to) {
     be_vector_push(&from->successors, to);
@@ -37,12 +38,19 @@ void be_build_cfg(Be_Module* module) {
     }
 }
 
-static bool be_remove_unreachable_function(Be_Function* function) {
+static void be_track_reachable(const Be_Block* block, bool* reachable) {
+    if (reachable[block->id]) return;
+    reachable[block->id] = true;
+    for (int i = 0; i < block->successors.size; i++) {
+        be_track_reachable(block->successors.elements[i], reachable);
+    }
+}
+
+static bool be_remove_unreachable_function(Be_Function* function, const bool* reachable) {
     bool changed = false;
     for (int i = 1; i < function->blocks.size; i++) {
         Be_Block* block = function->blocks.elements[i];
-        if (block->predecessors.size > 0) continue;
-        if (block->successors.size > 0) continue;
+        if (reachable[block->id]) continue;
         be_vector_remove(&function->blocks, i);
         i--;
         changed = true;
@@ -51,9 +59,16 @@ static bool be_remove_unreachable_function(Be_Function* function) {
 }
 
 bool be_remove_unreachable(Be_Module* module) {
+    Be_Arena scratch;
+    be_init_arena(&scratch);
     bool changed = false;
     for (int i = 0; i < module->functions.size; i++) {
-        changed |= be_remove_unreachable_function(module->functions.elements[i]);
+        Be_Function* function = module->functions.elements[i];
+        bool* reachable = be_arena_alloc(&scratch, sizeof(bool), alignof(bool));
+        memset(reachable, 0, function->blocks.capacity * sizeof(bool));
+        be_track_reachable(function->blocks.elements[0], reachable);
+        changed |= be_remove_unreachable_function(function, reachable);
     }
+    be_free_arena(&scratch);
     return changed;
 }
