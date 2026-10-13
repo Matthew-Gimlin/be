@@ -1,0 +1,13 @@
+func i @main() {
+entry:
+    br first
+
+middle:
+    br last
+
+first:
+    br last
+
+last:
+    ret i 0
+}

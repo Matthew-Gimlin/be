@@ -5,7 +5,7 @@
 #include <string.h>
 
 noreturn void be_fatal(const char* fmt, ...) {
-    fprintf(stderr, "be: error: ");
+    fprintf(stderr, "be: ERROR: ");
     va_list va;
     va_start(va, fmt);
     vfprintf(stderr, fmt, va);
@@ -15,7 +15,7 @@ noreturn void be_fatal(const char* fmt, ...) {
 }
 
 void be_error(const char* filename, int line, int column, const char* format, ...) {
-    fprintf(stderr, "%s:%d:%d: error: ", filename, line, column);
+    fprintf(stderr, "%s:%d:%d: ERROR: ", filename, line, column);
     va_list va;
     va_start(va, format);
     vfprintf(stderr, format, va);
@@ -205,6 +205,14 @@ Be_Block* be_get_block(Be_Function* function, int id) {
     for (int i = 0; i < function->blocks.size; i++) {
         Be_Block* block = function->blocks.elements[i];
         if (block->id == id) return block;
+    }
+    return NULL;
+}
+
+Be_Function* be_get_function(Be_Module* module, int id) {
+    for (int i = 0; i < module->functions.size; i++) {
+        Be_Function* function = module->functions.elements[i];
+        if (function->id == id) return function;
     }
     return NULL;
 }

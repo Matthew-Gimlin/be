@@ -4,10 +4,10 @@
 
 static const char* const VERSION = "0.0.0";
 static const char* const HELP =
-    "usage:\n"
-    "  be [options] FILE\n"
+    "USAGE:\n"
+    "  be [OPTIONS] FILE\n"
     "\n"
-    "options:\n"
+    "OPTIONS:\n"
     "  -v, --version         show the version and exit\n"
     "  -h, --help            show the help message and exit\n"
     "  -O, --optimize LEVEL  optimize the output to LEVEL (default 1)\n"

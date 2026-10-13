@@ -13,10 +13,12 @@ typedef enum {
     BE_TOKEN_INT,       // Decimal integer, e.g. `1234`
     BE_TOKEN_ADD,       // `add` keyword
     BE_TOKEN_BR,        // `br` keyword
+    BE_TOKEN_CALL,      // `call` keyword
     BE_TOKEN_CBR,       // `cbr` keyword
     BE_TOKEN_EQ,        // `eq` keyword
     BE_TOKEN_FUNC,      // `func` keyword
     BE_TOKEN_RET,       // `ret` keyword
+    BE_TOKEN_SUB,       // `sub` keyword
     BE_TOKEN_B,         // `b` keyword
     BE_TOKEN_S,         // `s` keyword
     BE_TOKEN_I,         // `i` keyword
@@ -88,7 +90,8 @@ static Be_Token be_keyword_kind(Be_Parser* parser, int len) {
             return be_is_keyword(parser, len, "b", 1) ? BE_TOKEN_B
                 : be_is_keyword(parser, len, "br", 2) ? BE_TOKEN_BR : BE_TOKEN_LABEL;
         case 'c':
-            return be_is_keyword(parser, len, "cbr", 3) ? BE_TOKEN_CBR : BE_TOKEN_LABEL;
+            return be_is_keyword(parser, len, "call", 4) ? BE_TOKEN_CALL
+                : be_is_keyword(parser, len, "cbr", 3) ? BE_TOKEN_CBR : BE_TOKEN_LABEL;
         case 'e':
             return be_is_keyword(parser, len, "eq", 2) ? BE_TOKEN_EQ : BE_TOKEN_LABEL;
         case 'f':
@@ -100,7 +103,8 @@ static Be_Token be_keyword_kind(Be_Parser* parser, int len) {
         case 'r':
             return be_is_keyword(parser, len, "ret", 3) ? BE_TOKEN_RET: BE_TOKEN_LABEL;
         case 's':
-            return be_is_keyword(parser, len, "s", 1) ? BE_TOKEN_S : BE_TOKEN_LABEL;
+            return be_is_keyword(parser, len, "s", 1) ? BE_TOKEN_S
+                : be_is_keyword(parser, len, "sub", 3) ? BE_TOKEN_SUB : BE_TOKEN_LABEL;
         default:
             return BE_TOKEN_LABEL;
     }
@@ -268,16 +272,33 @@ static Be_Instruction* be_parse_instruction(Be_Parser* parser, Be_Function* func
             break;
         case BE_TOKEN_ADD:
             instruction->kind = BE_INSTRUCTION_ADD;
-            be_next_token(parser);
+            goto binary;
+        case BE_TOKEN_SUB:
+            instruction->kind = BE_INSTRUCTION_SUB;
             goto binary;
         case BE_TOKEN_EQ:
             instruction->kind = BE_INSTRUCTION_EQ;
-            be_next_token(parser);
             goto binary;
         binary:
+            be_next_token(parser);
             be_parse_operand(parser, function, &instruction->binary.lhs);
             be_expect(parser, BE_TOKEN_COMMA, "expected `,`");
             be_parse_operand(parser, function, &instruction->binary.rhs);
+            break;
+        case BE_TOKEN_CALL:
+            instruction->kind = BE_INSTRUCTION_CALL;
+            be_next_token(parser);
+            instruction->call.name = parser->symbol;
+            be_expect(parser, BE_TOKEN_GLOBAL, "expected global name for function");
+            be_expect(parser, BE_TOKEN_LPAREN, "expected `(`");
+            be_init_vector(&instruction->call.parameters, parser->arena);
+            while (parser->token != BE_TOKEN_RPAREN) {
+                Be_Operand* operand = be_operand(parser->arena);
+                be_parse_operand(parser, function, operand);
+                be_vector_push(&instruction->call.parameters, operand);
+                be_accept(parser, BE_TOKEN_COMMA);
+            }
+            be_next_token(parser);
             break;
         default:
             be_error(parser->filename, parser->line, parser->column, "expected instruction");
@@ -396,7 +417,7 @@ Be_Module* be_parse_module(Be_Parser* parser) {
     while (parser->token != BE_TOKEN_EOF) {
         be_expect(parser, BE_TOKEN_FUNC, "expected `func`");
         Be_Function* function = be_parse_function(parser);
-        be_vector_push(&module->functions, function);
+        function->id = be_vector_push(&module->functions, function);
         be_next_token(parser);
     }
     return module;

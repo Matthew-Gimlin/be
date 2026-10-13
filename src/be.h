@@ -99,6 +99,7 @@ typedef enum {
     BE_INSTRUCTION_ADD,
     BE_INSTRUCTION_SUB,
     BE_INSTRUCTION_EQ,
+    BE_INSTRUCTION_CALL,
 } Be_Instruction_Kind;
 
 typedef struct {
@@ -108,6 +109,11 @@ typedef struct {
     union {
         struct { Be_Operand operand; } constant;
         struct { Be_Operand lhs; Be_Operand rhs; } binary;
+        struct {
+            int function_id;
+            Be_String name;
+            Be_Vector parameters;
+        } call;
     };
 } Be_Instruction;
 
@@ -156,6 +162,7 @@ typedef struct {
 } Be_Block;
 
 typedef struct {
+    int id;
     Be_String name;
     Be_Type type;
     Be_Vector parameters;
@@ -178,6 +185,7 @@ Be_Module* be_module(Be_Arena* arena);
 
 Be_Value* be_get_value(Be_Function* function, int id);
 Be_Block* be_get_block(Be_Function* function, int id);
+Be_Function* be_get_function(Be_Module* module, int id);
 
 Be_Module* be_parse(Be_Arena* arena, const char* filename, const char* source);
 bool be_resolve(Be_Module* module);
@@ -192,5 +200,9 @@ bool be_simplify_branches(Be_Module* module);
 bool be_simplify(Be_Module* module);
 bool be_remove_unreachable(Be_Module* module);
 void be_optimize(Be_Module* module);
+
+// TODO
+Be_Operand be_evaluate_binary(Be_Instruction_Kind kind, Be_Operand lhs, Be_Operand rhs);
+Be_Operand be_evaluate(const Be_Function* function, Be_Operand* parameters);
 
 #endif

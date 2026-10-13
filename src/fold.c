@@ -33,6 +33,15 @@ static int64_t be_get_constant(const Be_Operand* operand, const Be_Constant* con
     }
 }
 
+static int64_t be_binary_operation(Be_Instruction_Kind kind, uint64_t lhs, uint64_t rhs) {
+    switch (kind) {
+        case BE_INSTRUCTION_ADD: return lhs + rhs;
+        case BE_INSTRUCTION_SUB: return lhs - rhs;
+        case BE_INSTRUCTION_EQ: return lhs == rhs;
+        default: return 0;
+    }
+}
+
 static bool be_fold_instruction(Be_Instruction* instruction, Be_Constant* constants) {
     int id = instruction->result_id;
     switch (instruction->kind) {
@@ -45,30 +54,19 @@ static bool be_fold_instruction(Be_Instruction* instruction, Be_Constant* consta
             } else constants[id].known = false;
             return false;
         case BE_INSTRUCTION_ADD:
-            if (be_is_known(&instruction->binary.lhs, constants)
-                    && be_is_known(&instruction->binary.rhs, constants)) {
-                instruction->kind = BE_INSTRUCTION_CONST;
-                instruction->constant.operand = (Be_Operand){
-                    .kind = BE_OPERAND_INT,
-                    .int_const = be_get_constant(&instruction->binary.lhs, constants)
-                        + be_get_constant(&instruction->binary.rhs, constants),
-                };
-                constants[id] = (Be_Constant) {
-                    .known = true,
-                    .int_const = instruction->constant.operand.int_const,
-                };
-                return true;
-            } else constants[id].known = false;
-            return false;
+        case BE_INSTRUCTION_SUB:
         case BE_INSTRUCTION_EQ:
             if (be_is_known(&instruction->binary.lhs, constants)
                     && be_is_known(&instruction->binary.rhs, constants)) {
-                instruction->kind = BE_INSTRUCTION_CONST;
                 instruction->constant.operand = (Be_Operand){
                     .kind = BE_OPERAND_INT,
-                    .int_const = be_get_constant(&instruction->binary.lhs, constants)
-                        == be_get_constant(&instruction->binary.rhs, constants),
+                    .int_const = be_binary_operation(
+                        instruction->kind,
+                        be_get_constant(&instruction->binary.lhs, constants),
+                        be_get_constant(&instruction->binary.rhs, constants)
+                    ),
                 };
+                instruction->kind = BE_INSTRUCTION_CONST;
                 constants[id] = (Be_Constant) {
                     .known = true,
                     .int_const = instruction->constant.operand.int_const,

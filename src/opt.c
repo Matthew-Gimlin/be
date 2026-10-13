@@ -1,7 +1,7 @@
 #include "be.h"
 
 void be_optimize(Be_Module* module) {
-    bool changed = false;
+    bool changed;
     do {
         changed = false;
         changed |= be_fold(module);

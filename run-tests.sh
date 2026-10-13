@@ -1,6 +1,4 @@
-#!/bin/bash
-
-shopt -s nullglob
+#!/usr/bin/env bash
 
 function pass() {
     echo -e "\e[32mpass:\e[0m $@"
@@ -11,6 +9,10 @@ function fail() {
 }
 
 function main() {
+    if [ ! -f ./be ]; then
+        echo -e "\e[31mcompile ./be before running this script!\e[0m"
+        exit 1
+    fi
     local f temp
     for f in tests/*.ir; do
         temp=$(mktemp)
@@ -22,7 +24,7 @@ function main() {
             pass "$f"
         fi
         rm $temp
-    done 2> /dev/null
+    done
 }
 
 main

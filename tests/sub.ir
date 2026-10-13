@@ -1,0 +1,5 @@
+func i @main() { 
+entry:
+    %0 = i sub 2, 1
+    ret i %0
+}

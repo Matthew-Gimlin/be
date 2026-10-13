@@ -21,6 +21,7 @@ static void be_dump_operand(FILE* f, const Be_Function* function, const Be_Opera
             fprintf(f, "%lf", operand->float_const);
             break;
         default:
+            fprintf(f, "; unknown operand kind %d", operand->kind);
             break;
     }
 }
@@ -39,16 +40,28 @@ static void be_dump_instruction(FILE* f, const Be_Function* function, const Be_I
         case BE_INSTRUCTION_ADD:
             fprintf(f, "add ");
             goto binary;
+        case BE_INSTRUCTION_SUB:
+            fprintf(f, "sub ");
+            goto binary;
         case BE_INSTRUCTION_EQ:
             fprintf(f, "eq ");
             goto binary;
+        case BE_INSTRUCTION_CALL:
+            fprintf(f, "%.*s(", instruction->call.name.len, instruction->call.name.str);
+            for (int i = 0; i < instruction->call.parameters.size; i++) {
+                be_dump_operand(f, function, instruction->call.parameters.elements[i]);
+                if (i < instruction->call.parameters.size - 1) fprintf(f, ", ");
+            }
+            fprintf(f, ")");
+            break;
         binary:
             be_dump_operand(f, function, &instruction->binary.lhs);
             fprintf(f, ", ");
             be_dump_operand(f, function, &instruction->binary.rhs);
             break;
         default:
-            return;
+            fprintf(f, "; unknown instruction kind %d", instruction->kind);
+            break;
     }
     fprintf(f, "\n");
 }
@@ -80,8 +93,8 @@ static void be_dump_terminator(FILE* f, const Be_Function* function, const Be_Te
             );
             break;
         default:
-            fprintf(f, "; unknown terminator kind %d\n", terminator->kind);
-            return;
+            fprintf(f, "; unknown terminator kind %d", terminator->kind);
+            break;
     }
     fprintf(f, "\n");
 }
