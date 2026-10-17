@@ -21,6 +21,11 @@ static void be_track_instruction(const Be_Instruction* instruction, int* usages)
             be_track_operand(&instruction->binary.lhs, usages);
             be_track_operand(&instruction->binary.rhs, usages);
             break;
+        case BE_INSTRUCTION_CALL:
+            for (int i = 0; i < instruction->call.parameters.size; i++) {
+                be_track_operand(instruction->call.parameters.elements[i], usages);
+            }
+            break;
         default:
             break;
     }

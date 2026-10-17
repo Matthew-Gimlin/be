@@ -74,6 +74,17 @@ static bool be_fold_instruction(Be_Instruction* instruction, Be_Constant* consta
                 return true;
             } else constants[id].known = false;
             return false;
+        case BE_INSTRUCTION_CALL:
+            for (int i = 0; i < instruction->call.parameters.size; i++) {
+                Be_Operand* parameter = instruction->call.parameters.elements[i];
+                if (be_is_known(parameter, constants)) {
+                    *parameter = (Be_Operand){
+                        .kind = BE_OPERAND_INT,
+                        .int_const = be_get_constant(parameter, constants),
+                    };
+                }
+            }
+            return false;
         default:
             return false;
     }
