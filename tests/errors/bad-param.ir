@@ -1,0 +1,4 @@
+func i @main(i) {
+entry:
+    ret i 0
+}

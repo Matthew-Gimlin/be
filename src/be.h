@@ -14,7 +14,7 @@
 #define BE_TODO(msg) \
     do { \
         printf("be: %s:%d: todo: " msg "\n", __FILE__, __LINE__); \
-        abort(); \
+        exit(1); \
     } while (0)
 
 void be_error(const char* filename, int line, int column, const char* format, ...);
@@ -203,6 +203,6 @@ void be_optimize(Be_Module* module);
 
 // TODO
 Be_Operand be_evaluate_binary(Be_Instruction_Kind kind, Be_Operand lhs, Be_Operand rhs);
-Be_Operand be_evaluate(const Be_Function* function, Be_Operand* parameters);
+Be_Operand be_evaluate(Be_Arena* scratch, const Be_Function* function, const Be_Vector* parameters);
 
 #endif

@@ -403,10 +403,10 @@ static Be_Function* be_parse_function(Be_Parser* parser) {
     be_expect(parser, BE_TOKEN_GLOBAL, "expected global name for function");
     be_parse_parameters(parser, function);
     be_expect(parser, BE_TOKEN_LBRACE, "expected `{` after function parameters");
-    while (parser->token != BE_TOKEN_RBRACE) {
+    do {
         Be_Block* block = be_parse_block(parser, function);
         block->id = be_vector_push(&function->blocks, block);
-    }
+    } while (parser->token != BE_TOKEN_RBRACE);
     return function;
 }
 

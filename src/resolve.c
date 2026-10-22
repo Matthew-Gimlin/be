@@ -5,13 +5,33 @@
 typedef struct {
     jmp_buf env;
     const char* filename;
+    Be_Module* module;
 } Be_Resolver;
 
-static bool be_resolve_block_reference(const Be_Function* function, Be_Block_Reference* reference) {
+static void be_resolve_call(Be_Module* module, Be_Instruction* instruction) {
+    for (int i = 0; i < module->functions.size; i++) {
+        Be_Function* function = module->functions.elements[i];
+        if (!be_string_equals(function->name, instruction->call.name)) continue;
+        instruction->call.function_id = function->id;
+        return;
+    }
+    instruction->call.function_id = -1;
+}
+
+static void be_resolve_instruction(Be_Resolver* resolver, Be_Instruction* instruction) {
+    switch (instruction->kind) {
+        case BE_INSTRUCTION_CALL:
+            be_resolve_call(resolver->module, instruction);
+            break;
+        default:
+            break;
+    }
+}
+
+static bool be_resolve_block_reference(Be_Function* function, Be_Block_Reference* reference) {
     for (int i = 0; i < function->blocks.size; i++) {
         Be_Block* block = function->blocks.elements[i];
-        if (block->label.len != reference->label.len) continue;
-        if (strncmp(block->label.str, reference->label.str, block->label.len)) continue;
+        if (!be_string_equals(block->label, reference->label)) continue;
         reference->block_id = block->id;
         return true;
     }
@@ -90,6 +110,9 @@ static void be_resolve_block(Be_Resolver* resolver, Be_Function* function, Be_Bl
             longjmp(resolver->env, 1);
         }
     }
+    for (int i = 0; i < block->instructions.size; i++) {
+        be_resolve_instruction(resolver, block->instructions.elements[i]);
+    }
     be_resolve_terminator(resolver, function, block);
 }
 
@@ -102,6 +125,7 @@ static void be_resolve_function(Be_Resolver* resolver, Be_Function* function) {
 bool be_resolve(Be_Module* module) {
     Be_Resolver resolver = {
         .filename = module->filename,
+        .module = module,
     };
     if (setjmp(resolver.env) == 0) {
         for (int i = 0; i < module->functions.size; i++) {
