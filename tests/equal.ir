@@ -1,6 +1,6 @@
 func i @main() {
 entry:
-    %0 = i eq 0, 1
+    %0 = eq i 0, 1
     cbr i %0, true, false
 
 true:

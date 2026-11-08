@@ -31,7 +31,7 @@ static void be_dump_instruction(FILE* f, const Be_Function* function, const Be_I
     fprintf(f, "  ");
     if (instruction->result_id >= 0) {
         be_dump_value(f, function, instruction->result_id);
-        fprintf(f, " = %s ", be_type_symbol(instruction->type));
+        fprintf(f, " = ");
     }
     switch (instruction->kind) {
         case BE_INSTRUCTION_CONST:
@@ -47,7 +47,7 @@ static void be_dump_instruction(FILE* f, const Be_Function* function, const Be_I
             fprintf(f, "eq ");
             goto binary;
         case BE_INSTRUCTION_CALL:
-            fprintf(f, "%.*s(", instruction->call.name.len, instruction->call.name.str);
+            fprintf(f, "call %s %.*s(", be_type_symbol(instruction->type), instruction->call.name.len, instruction->call.name.str);
             for (int i = 0; i < instruction->call.parameters.size; i++) {
                 be_dump_operand(f, function, instruction->call.parameters.elements[i]);
                 if (i < instruction->call.parameters.size - 1) fprintf(f, ", ");
@@ -55,6 +55,7 @@ static void be_dump_instruction(FILE* f, const Be_Function* function, const Be_I
             fprintf(f, ")");
             break;
         binary:
+            fprintf(f, "%s ", be_type_symbol(instruction->type));
             be_dump_operand(f, function, &instruction->binary.lhs);
             fprintf(f, ", ");
             be_dump_operand(f, function, &instruction->binary.rhs);

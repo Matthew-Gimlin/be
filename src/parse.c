@@ -15,6 +15,7 @@ typedef enum {
     BE_TOKEN_BR,        // `br` keyword
     BE_TOKEN_CALL,      // `call` keyword
     BE_TOKEN_CBR,       // `cbr` keyword
+    BE_TOKEN_CONST,     // `const` keyword
     BE_TOKEN_EQ,        // `eq` keyword
     BE_TOKEN_FUNC,      // `func` keyword
     BE_TOKEN_RET,       // `ret` keyword
@@ -88,10 +89,13 @@ static Be_Token be_keyword_kind(Be_Parser* parser, int len) {
             return be_is_keyword(parser, len, "add", 3) ? BE_TOKEN_ADD : BE_TOKEN_LABEL;
         case 'b':
             return be_is_keyword(parser, len, "b", 1) ? BE_TOKEN_B
-                : be_is_keyword(parser, len, "br", 2) ? BE_TOKEN_BR : BE_TOKEN_LABEL;
+                : be_is_keyword(parser, len, "br", 2) ? BE_TOKEN_BR
+                : BE_TOKEN_LABEL;
         case 'c':
             return be_is_keyword(parser, len, "call", 4) ? BE_TOKEN_CALL
-                : be_is_keyword(parser, len, "cbr", 3) ? BE_TOKEN_CBR : BE_TOKEN_LABEL;
+                : be_is_keyword(parser, len, "cbr", 3) ? BE_TOKEN_CBR
+                : be_is_keyword(parser, len, "const", 5) ? BE_TOKEN_CONST
+                : BE_TOKEN_LABEL;
         case 'e':
             return be_is_keyword(parser, len, "eq", 2) ? BE_TOKEN_EQ : BE_TOKEN_LABEL;
         case 'f':
@@ -104,7 +108,8 @@ static Be_Token be_keyword_kind(Be_Parser* parser, int len) {
             return be_is_keyword(parser, len, "ret", 3) ? BE_TOKEN_RET: BE_TOKEN_LABEL;
         case 's':
             return be_is_keyword(parser, len, "s", 1) ? BE_TOKEN_S
-                : be_is_keyword(parser, len, "sub", 3) ? BE_TOKEN_SUB : BE_TOKEN_LABEL;
+                : be_is_keyword(parser, len, "sub", 3) ? BE_TOKEN_SUB
+                : BE_TOKEN_LABEL;
         default:
             return BE_TOKEN_LABEL;
     }
@@ -263,11 +268,12 @@ static Be_Instruction* be_parse_instruction(Be_Parser* parser, Be_Function* func
         instruction->result_id = be_push_value(parser, function, true);
         be_next_token(parser);
         be_expect(parser, BE_TOKEN_EQSIGN, "expected `=`");
-        instruction->type = be_parse_type(parser, "expected instruction type");
     } else instruction->type = BE_TYPE_VOID;
     switch (parser->token) {
-        case BE_TOKEN_INT:
+        case BE_TOKEN_CONST:
             instruction->kind = BE_INSTRUCTION_CONST;
+            be_next_token(parser);
+            instruction->type = be_parse_type(parser, "expected operand type for instruction");
             be_parse_operand(parser, function, &instruction->constant.operand);
             break;
         case BE_TOKEN_ADD:
@@ -281,6 +287,7 @@ static Be_Instruction* be_parse_instruction(Be_Parser* parser, Be_Function* func
             goto binary;
         binary:
             be_next_token(parser);
+            instruction->type = be_parse_type(parser, "expected operand type for instruction");
             be_parse_operand(parser, function, &instruction->binary.lhs);
             be_expect(parser, BE_TOKEN_COMMA, "expected `,`");
             be_parse_operand(parser, function, &instruction->binary.rhs);
@@ -288,6 +295,7 @@ static Be_Instruction* be_parse_instruction(Be_Parser* parser, Be_Function* func
         case BE_TOKEN_CALL:
             instruction->kind = BE_INSTRUCTION_CALL;
             be_next_token(parser);
+            instruction->type = be_parse_type(parser, "expected operand type for instruction");
             instruction->call.name = parser->symbol;
             be_expect(parser, BE_TOKEN_GLOBAL, "expected global name for function");
             be_expect(parser, BE_TOKEN_LPAREN, "expected `(`");
