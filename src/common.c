@@ -193,6 +193,49 @@ Be_Module* be_module(Be_Arena* arena) {
     return module;
 }
 
+Be_Constant be_operand_to_constant(const Be_Operand* operand, Be_Constant* constants) {
+    switch (operand->kind) {
+        case BE_OPERAND_VALUE:
+            return constants[operand->value_id];
+        case BE_OPERAND_INT:
+            return (Be_Constant){
+                .known = true,
+                .type = BE_TYPE_INT,
+                .int_const = operand->int_const,
+            };
+        case BE_OPERAND_FLOAT:
+            return (Be_Constant){
+                .known = true,
+                .type = BE_TYPE_FLOAT,
+                .float_const = operand->float_const,
+            };
+        default:
+            return (Be_Constant){.known = false};
+    }
+}
+
+Be_Operand be_constant_to_operand(const Be_Constant* constant) {
+    if (!constant->known) return (Be_Operand){.kind = BE_OPERAND_ERROR};
+    switch (constant->type) {
+        case BE_TYPE_BYTE:
+        case BE_TYPE_SHORT:
+        case BE_TYPE_INT:
+        case BE_TYPE_LONG:
+            return (Be_Operand){
+                .kind = BE_OPERAND_INT,
+                .int_const = constant->int_const,
+            };
+        case BE_TYPE_FLOAT:
+        case BE_TYPE_DOUBLE:
+            return (Be_Operand){
+                .kind = BE_OPERAND_FLOAT,
+                .float_const = constant->float_const,
+            };
+        default:
+            return (Be_Operand){.kind = BE_OPERAND_ERROR};
+    }
+}
+
 Be_Value* be_get_value(Be_Function* function, int id) {
     for (int i = 0; i < function->values.size; i++) {
         Be_Value* value = function->values.elements[i];

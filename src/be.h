@@ -77,6 +77,15 @@ typedef struct {
     bool defined;
 } Be_Value;
 
+typedef struct {
+    bool known;
+    Be_Type type;
+    union {
+        int64_t int_const;
+        double float_const;
+    };
+} Be_Constant;
+
 typedef enum {
     BE_OPERAND_ERROR,
     BE_OPERAND_VALUE,
@@ -202,7 +211,10 @@ bool be_remove_unreachable(Be_Module* module);
 void be_optimize(Be_Module* module);
 
 // TODO
-Be_Operand be_evaluate_binary(Be_Instruction_Kind kind, Be_Operand lhs, Be_Operand rhs);
-Be_Operand be_evaluate(Be_Arena* scratch, const Be_Function* function, const Be_Vector* parameters);
+Be_Constant be_operand_to_constant(const Be_Operand* operand, Be_Constant* constants);
+Be_Operand be_constant_to_operand(const Be_Constant* constant);
+
+Be_Constant be_evaluate_binary(Be_Instruction_Kind kind, const Be_Constant* lhs, const Be_Constant* rhs);
+Be_Constant be_evaluate(Be_Arena* scratch, const Be_Function* function, const Be_Vector* parameters);
 
 #endif
