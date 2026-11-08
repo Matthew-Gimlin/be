@@ -1,4 +1,4 @@
-# 🐝 be
+# be
 
 `be` is a compiler backend.
 
@@ -15,19 +15,24 @@ make
 Say `example.ir` contains the following code.
 
 ```
+func i @sum(i %0, i %1, i %2) {
+entry:
+  %3 = add i %0, %1
+  %4 = add i %2, %3
+  ret i %4
+}
+
 func i @main() {
 entry:
-    %0 = i eq 0, 1
-    cbr i %0, true, false
+  %sum = call i @sum(1, 2, 3)
+  %comparison = eq i %sum, 6
+  cbr i %comparison, ok, error
 
-true:
-    ret i 0
+ok:
+  ret i 0
 
-false:
-    ret i 1
-
-unreachable:
-    ret i 2
+error:
+  ret i 1
 }
 ```
 
@@ -41,8 +46,15 @@ Run `be` with the file.
 optimized IR. For the example above, the output appears as follows.
 
 ```
+func i @sum(i %0, i %1, i %2) {
+entry:
+  %3 = add i %0, %1
+  %4 = add i %2, %3
+  ret i %4
+}
+
 func i @main() {
 entry:
-  ret i 1
+  ret i 0
 }
 ```
