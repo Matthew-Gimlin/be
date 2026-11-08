@@ -1,5 +1,5 @@
 func i @main() {
 entry:
-    %0 = i randominstruction 0, 1
+    %0 = randominstruction i 0, 1
     ret i %0
 }
